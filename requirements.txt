@@ -1,0 +1,7 @@
+crewai
+crewai[tools]
+litellm
+langchain-community
+streamlit
+python-dotenv
+
