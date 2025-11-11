@@ -19,3 +19,6 @@ htmlcov/
 # Reference repositories (large, can be re-cloned)
 repos/
 
+# Archived documentation and test files
+archive/
+

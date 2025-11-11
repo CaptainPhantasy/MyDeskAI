@@ -27,6 +27,21 @@ from output_formatter import get_output_formatter
 from crewai.events.event_bus import crewai_event_bus
 from crewai.events.base_event_listener import BaseEventListener
 from crewai.events.types.llm_events import LLMStreamChunkEvent
+from crewai.events.types.agent_events import (
+    AgentExecutionStartedEvent,
+    AgentExecutionCompletedEvent,
+    AgentExecutionErrorEvent
+)
+from crewai.events.types.task_events import (
+    TaskStartedEvent,
+    TaskCompletedEvent,
+    TaskFailedEvent
+)
+from crewai.events.types.tool_usage_events import (
+    ToolUsageStartedEvent,
+    ToolUsageFinishedEvent,
+    ToolUsageErrorEvent
+)
 
 
 def load_keys_from_env():
@@ -58,14 +73,17 @@ if "current_model" not in st.session_state:
 
 
 class StreamlitStreamListener(BaseEventListener):
-    """Event listener to capture streaming chunks for Streamlit display."""
+    """Event listener to capture streaming chunks and agent activity for Streamlit display."""
     
-    def __init__(self, stream_container):
+    def __init__(self, stream_container, log_container=None):
         self.stream_container = stream_container
+        self.log_container = log_container
         self.accumulated_text = ""
+        self.activity_log = []  # Store activity log entries
         self.setup_listeners()
     
     def setup_listeners(self):
+        # Existing listener for final text output
         @crewai_event_bus.on(LLMStreamChunkEvent)
         def on_llm_stream_chunk(event: LLMStreamChunkEvent):
             """Handle each streaming chunk."""
@@ -73,6 +91,101 @@ class StreamlitStreamListener(BaseEventListener):
                 self.accumulated_text += event.chunk
                 # Update the stream container with accumulated text
                 self.stream_container.markdown(self.accumulated_text)
+        
+        # Agent execution events
+        @crewai_event_bus.on(AgentExecutionStartedEvent)
+        def on_agent_started(event: AgentExecutionStartedEvent):
+            """Handle when an agent starts executing."""
+            agent_name = getattr(event.agent, 'role', 'Unknown Agent')
+            message = f"🤖 **{agent_name}** started working on task"
+            self._add_log_entry(message, "info")
+        
+        @crewai_event_bus.on(AgentExecutionCompletedEvent)
+        def on_agent_completed(event: AgentExecutionCompletedEvent):
+            """Handle when an agent completes execution."""
+            agent_name = getattr(event.agent, 'role', 'Unknown Agent')
+            output_preview = str(event.output)[:150] + "..." if len(str(event.output)) > 150 else str(event.output)
+            message = f"✅ **{agent_name}** completed task\n\n*Output preview: {output_preview}*"
+            self._add_log_entry(message, "success")
+        
+        @crewai_event_bus.on(AgentExecutionErrorEvent)
+        def on_agent_error(event: AgentExecutionErrorEvent):
+            """Handle when an agent encounters an error."""
+            agent_name = getattr(event.agent, 'role', 'Unknown Agent')
+            message = f"❌ **{agent_name}** encountered an error: {event.error}"
+            self._add_log_entry(message, "error")
+        
+        # Task events
+        @crewai_event_bus.on(TaskStartedEvent)
+        def on_task_started(event: TaskStartedEvent):
+            """Handle when a task starts."""
+            task_name = getattr(event.task, 'description', 'Unknown Task')[:100] if event.task else "Unknown Task"
+            message = f"📋 Task started: *{task_name}*"
+            self._add_log_entry(message, "info")
+        
+        @crewai_event_bus.on(TaskCompletedEvent)
+        def on_task_completed(event: TaskCompletedEvent):
+            """Handle when a task completes."""
+            task_name = getattr(event.task, 'description', 'Unknown Task')[:100] if event.task else "Unknown Task"
+            output_preview = str(event.output)[:150] + "..." if len(str(event.output)) > 150 else str(event.output)
+            message = f"✅ Task completed: *{task_name}*\n\n*Output: {output_preview}*"
+            self._add_log_entry(message, "success")
+        
+        @crewai_event_bus.on(TaskFailedEvent)
+        def on_task_failed(event: TaskFailedEvent):
+            """Handle when a task fails."""
+            task_name = getattr(event.task, 'description', 'Unknown Task')[:100] if event.task else "Unknown Task"
+            message = f"❌ Task failed: *{task_name}*\n\n*Error: {event.error}*"
+            self._add_log_entry(message, "error")
+        
+        # Tool usage events
+        @crewai_event_bus.on(ToolUsageStartedEvent)
+        def on_tool_started(event: ToolUsageStartedEvent):
+            """Handle when a tool execution starts."""
+            agent_role = event.agent_role or "Unknown Agent"
+            tool_name = event.tool_name
+            tool_args = str(event.tool_args)[:100] if event.tool_args else "No args"
+            message = f"🔧 **{agent_role}** using tool: `{tool_name}`\n*Input: {tool_args}*"
+            self._add_log_entry(message, "info")
+        
+        @crewai_event_bus.on(ToolUsageFinishedEvent)
+        def on_tool_finished(event: ToolUsageFinishedEvent):
+            """Handle when a tool execution completes."""
+            agent_role = event.agent_role or "Unknown Agent"
+            tool_name = event.tool_name
+            output_preview = str(event.output)[:150] + "..." if len(str(event.output)) > 150 else str(event.output)
+            cache_status = " (cached)" if event.from_cache else ""
+            message = f"✅ **{agent_role}** finished using `{tool_name}`{cache_status}\n*Output: {output_preview}*"
+            self._add_log_entry(message, "success")
+        
+        @crewai_event_bus.on(ToolUsageErrorEvent)
+        def on_tool_error(event: ToolUsageErrorEvent):
+            """Handle when a tool execution encounters an error."""
+            agent_role = event.agent_role or "Unknown Agent"
+            tool_name = event.tool_name
+            error_msg = str(event.error)[:200]
+            message = f"❌ **{agent_role}** error with tool `{tool_name}`: {error_msg}"
+            self._add_log_entry(message, "error")
+    
+    def _add_log_entry(self, message: str, level: str = "info"):
+        """Add an entry to the activity log and update the UI."""
+        self.activity_log.append({"message": message, "level": level})
+        
+        # Update the log container if available
+        if self.log_container:
+            # Clear and rebuild the log display
+            log_text = ""
+            for entry in self.activity_log[-20:]:  # Show last 20 entries
+                if entry["level"] == "info":
+                    log_text += f"ℹ️ {entry['message']}\n\n"
+                elif entry["level"] == "success":
+                    log_text += f"✅ {entry['message']}\n\n"
+                elif entry["level"] == "error":
+                    log_text += f"❌ {entry['message']}\n\n"
+                else:
+                    log_text += f"{entry['message']}\n\n"
+            
+            self.log_container.markdown(log_text)
 
 
 def render_settings_sidebar():
@@ -249,6 +362,12 @@ def process_user_request(prompt: str):
         if st.session_state.api_keys["glm"]:
             os.environ["ZHIPUAI_API_KEY"] = st.session_state.api_keys["glm"]
         
+        # Create activity log container (expander for agent work visibility)
+        log_expander = st.expander("🔍 Agent Activity Log", expanded=True)
+        with log_expander:
+            log_container = st.empty()
+            log_container.info("Waiting for agent activity...")
+        
         # Create stream container for real-time output
         stream_placeholder = st.empty()
         
@@ -297,6 +416,7 @@ def process_user_request(prompt: str):
                     "project_type": "python",
                 }
                 
+                decision = None
                 try:
                     # Process request through decision engine
                     decision = decision_engine.process_request(prompt, context=context)
@@ -313,15 +433,16 @@ def process_user_request(prompt: str):
                     
                     if error_result.get("can_continue"):
                         # Fallback to simple agent
-                        selected_tools = decision.get("tools", []) if 'decision' in locals() else []
+                        selected_tools = decision.get("tools", []) if decision else []
                         agent = create_test_agent(llm, model_name=model_name, tools=selected_tools)
                         task = create_test_task(agent, prompt)
                         crew = Crew(agents=[agent], tasks=[task], verbose=True)
                     else:
                         raise
                 
-                # Set up streaming listener
-                listener = StreamlitStreamListener(stream_placeholder)
+                # Set up streaming listener with log container
+                # Note: We keep a reference to the listener to ensure event handlers remain active
+                _listener = StreamlitStreamListener(stream_placeholder, log_container)
                 
                 # Run the crew
                 result = crew.kickoff()
