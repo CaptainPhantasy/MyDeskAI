@@ -13,10 +13,11 @@ from tasks import create_test_task
 from llm_wrapper import LiteLLMWrapper
 
 # Create LLM wrapper
-llm = LiteLLMWrapper(model_name="glm-4.6", temperature=0.7)
+# Note: API keys should be set in environment variables (GEMINI_API_KEY or OPENAI_API_KEY)
+llm = LiteLLMWrapper(model_name="gpt-3.5-turbo", temperature=0.7)
 
 # Create agent
-agent = create_test_agent(llm, model_name="glm-4.6")
+agent = create_test_agent(llm, model_name="gpt-3.5-turbo")
 
 # Create task
 task = create_test_task(agent, user_prompt="Your task here")
@@ -46,13 +47,14 @@ from agents import (
 from llm_wrapper import LiteLLMWrapper
 
 # Create LLM wrapper
-llm = LiteLLMWrapper(model_name="glm-4.6", temperature=0.7)
+# Note: API keys should be set in environment variables (GEMINI_API_KEY or OPENAI_API_KEY)
+llm = LiteLLMWrapper(model_name="gpt-3.5-turbo", temperature=0.7)
 
 # Create multiple agents
-planner = create_planner_agent(llm, model_name="glm-4.6")
-file_reader = create_file_reader_agent(llm, model_name="glm-4.6")
-code_analyst = create_code_analyst_agent(llm, model_name="glm-4.6")
-report_writer = create_report_writer_agent(llm, model_name="glm-4.6")
+planner = create_planner_agent(llm, model_name="gpt-3.5-turbo")
+file_reader = create_file_reader_agent(llm, model_name="gpt-3.5-turbo")
+code_analyst = create_code_analyst_agent(llm, model_name="gpt-3.5-turbo")
+report_writer = create_report_writer_agent(llm, model_name="gpt-3.5-turbo")
 
 # Create tasks with dependencies
 planning_task = Task(
@@ -176,13 +178,14 @@ from agents import (
 from llm_wrapper import LiteLLMWrapper
 
 # Setup
-llm = LiteLLMWrapper(model_name="glm-4.6", temperature=0.7)
+# Note: API keys should be set in environment variables (GEMINI_API_KEY or OPENAI_API_KEY)
+llm = LiteLLMWrapper(model_name="gpt-3.5-turbo", temperature=0.7)
 file_path = "app.py"
 
 # Create agents
-file_reader = create_file_reader_agent(llm, model_name="glm-4.6")
-code_analyst = create_code_analyst_agent(llm, model_name="glm-4.6")
-report_writer = create_report_writer_agent(llm, model_name="glm-4.6")
+file_reader = create_file_reader_agent(llm, model_name="gpt-3.5-turbo")
+code_analyst = create_code_analyst_agent(llm, model_name="gpt-3.5-turbo")
+report_writer = create_report_writer_agent(llm, model_name="gpt-3.5-turbo")
 
 # Create tasks
 read_task = Task(
@@ -226,14 +229,15 @@ MyDeskAI includes an orchestrator that automatically creates crews:
 from agent_orchestrator import get_orchestrator
 from llm_wrapper import LiteLLMWrapper
 
-llm = LiteLLMWrapper(model_name="glm-4.6", temperature=0.7)
+# Note: API keys should be set in environment variables (GEMINI_API_KEY or OPENAI_API_KEY)
+llm = LiteLLMWrapper(model_name="gpt-3.5-turbo", temperature=0.7)
 orchestrator = get_orchestrator()
 
 # Automatically creates appropriate crew based on request complexity
 orchestration = orchestrator.orchestrate_task(
     user_request="Review the code in app.py",
     llm=llm,
-    model_name="glm-4.6"
+    model_name="gpt-3.5-turbo"
 )
 
 # Get the crew

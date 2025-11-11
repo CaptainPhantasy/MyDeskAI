@@ -50,7 +50,6 @@ def load_keys_from_env():
     keys = {
         "gemini": os.getenv("GEMINI_API_KEY", "").strip('"').strip("'"),
         "openai": os.getenv("OPENAI_API_KEY", "").strip('"').strip("'"),
-        "glm": os.getenv("GLM_API_KEY", "").strip('"').strip("'"),
     }
     return keys
 
@@ -62,7 +61,6 @@ if "api_keys" not in st.session_state:
     st.session_state.api_keys = {
         "gemini": env_keys.get("gemini", ""),
         "openai": env_keys.get("openai", ""),
-        "glm": env_keys.get("glm", ""),
     }
 
 if "chat_history" not in st.session_state:
@@ -85,7 +83,7 @@ class StreamlitStreamListener(BaseEventListener):
     def setup_listeners(self):
         # Existing listener for final text output
         @crewai_event_bus.on(LLMStreamChunkEvent)
-        def on_llm_stream_chunk(event: LLMStreamChunkEvent):
+        def on_llm_stream_chunk(self, event: LLMStreamChunkEvent):
             """Handle each streaming chunk."""
             if event.chunk:
                 self.accumulated_text += event.chunk
@@ -94,14 +92,14 @@ class StreamlitStreamListener(BaseEventListener):
         
         # Agent execution events
         @crewai_event_bus.on(AgentExecutionStartedEvent)
-        def on_agent_started(event: AgentExecutionStartedEvent):
+        def on_agent_started(self, event: AgentExecutionStartedEvent):
             """Handle when an agent starts executing."""
             agent_name = getattr(event.agent, 'role', 'Unknown Agent')
             message = f"🤖 **{agent_name}** started working on task"
             self._add_log_entry(message, "info")
         
         @crewai_event_bus.on(AgentExecutionCompletedEvent)
-        def on_agent_completed(event: AgentExecutionCompletedEvent):
+        def on_agent_completed(self, event: AgentExecutionCompletedEvent):
             """Handle when an agent completes execution."""
             agent_name = getattr(event.agent, 'role', 'Unknown Agent')
             output_preview = str(event.output)[:150] + "..." if len(str(event.output)) > 150 else str(event.output)
@@ -109,7 +107,7 @@ class StreamlitStreamListener(BaseEventListener):
             self._add_log_entry(message, "success")
         
         @crewai_event_bus.on(AgentExecutionErrorEvent)
-        def on_agent_error(event: AgentExecutionErrorEvent):
+        def on_agent_error(self, event: AgentExecutionErrorEvent):
             """Handle when an agent encounters an error."""
             agent_name = getattr(event.agent, 'role', 'Unknown Agent')
             message = f"❌ **{agent_name}** encountered an error: {event.error}"
@@ -117,14 +115,14 @@ class StreamlitStreamListener(BaseEventListener):
         
         # Task events
         @crewai_event_bus.on(TaskStartedEvent)
-        def on_task_started(event: TaskStartedEvent):
+        def on_task_started(self, event: TaskStartedEvent):
             """Handle when a task starts."""
             task_name = getattr(event.task, 'description', 'Unknown Task')[:100] if event.task else "Unknown Task"
             message = f"📋 Task started: *{task_name}*"
             self._add_log_entry(message, "info")
         
         @crewai_event_bus.on(TaskCompletedEvent)
-        def on_task_completed(event: TaskCompletedEvent):
+        def on_task_completed(self, event: TaskCompletedEvent):
             """Handle when a task completes."""
             task_name = getattr(event.task, 'description', 'Unknown Task')[:100] if event.task else "Unknown Task"
             output_preview = str(event.output)[:150] + "..." if len(str(event.output)) > 150 else str(event.output)
@@ -132,7 +130,7 @@ class StreamlitStreamListener(BaseEventListener):
             self._add_log_entry(message, "success")
         
         @crewai_event_bus.on(TaskFailedEvent)
-        def on_task_failed(event: TaskFailedEvent):
+        def on_task_failed(self, event: TaskFailedEvent):
             """Handle when a task fails."""
             task_name = getattr(event.task, 'description', 'Unknown Task')[:100] if event.task else "Unknown Task"
             message = f"❌ Task failed: *{task_name}*\n\n*Error: {event.error}*"
@@ -140,7 +138,7 @@ class StreamlitStreamListener(BaseEventListener):
         
         # Tool usage events
         @crewai_event_bus.on(ToolUsageStartedEvent)
-        def on_tool_started(event: ToolUsageStartedEvent):
+        def on_tool_started(self, event: ToolUsageStartedEvent):
             """Handle when a tool execution starts."""
             agent_role = event.agent_role or "Unknown Agent"
             tool_name = event.tool_name
@@ -149,7 +147,7 @@ class StreamlitStreamListener(BaseEventListener):
             self._add_log_entry(message, "info")
         
         @crewai_event_bus.on(ToolUsageFinishedEvent)
-        def on_tool_finished(event: ToolUsageFinishedEvent):
+        def on_tool_finished(self, event: ToolUsageFinishedEvent):
             """Handle when a tool execution completes."""
             agent_role = event.agent_role or "Unknown Agent"
             tool_name = event.tool_name
@@ -159,7 +157,7 @@ class StreamlitStreamListener(BaseEventListener):
             self._add_log_entry(message, "success")
         
         @crewai_event_bus.on(ToolUsageErrorEvent)
-        def on_tool_error(event: ToolUsageErrorEvent):
+        def on_tool_error(self, event: ToolUsageErrorEvent):
             """Handle when a tool execution encounters an error."""
             agent_role = event.agent_role or "Unknown Agent"
             tool_name = event.tool_name
@@ -227,15 +225,6 @@ def render_settings_sidebar():
             key="openai_key_input"
         )
         
-        # GLM-4.6 API Key (Zhipu AI)
-        glm_key = st.text_input(
-            "GLM-4.6 API Key (Zhipu AI)",
-            value=st.session_state.api_keys["glm"],
-            type="password",
-            help="Get your key from https://open.bigmodel.cn/",
-            key="glm_key_input"
-        )
-        
         # Save keys to session state
         if gemini_key != st.session_state.api_keys["gemini"]:
             st.session_state.api_keys["gemini"] = gemini_key
@@ -245,22 +234,15 @@ def render_settings_sidebar():
             st.session_state.api_keys["openai"] = openai_key
             st.rerun()
         
-        if glm_key != st.session_state.api_keys["glm"]:
-            st.session_state.api_keys["glm"] = glm_key
-            st.rerun()
-        
         # Model selection
         st.markdown("### Model Selection")
         available_models = []
-        # Prioritize GLM-4.6 (user's preferred model)
-        if st.session_state.api_keys["glm"]:
-            available_models.append("glm-4.6")
-        # OpenAI as fallback
+        # OpenAI
         if st.session_state.api_keys["openai"]:
             available_models.append("gpt-3.5-turbo")
-        # Note: Gemini support is experimental - crewai tries to use native provider
-        # if st.session_state.api_keys["gemini"]:
-        #     available_models.append("gemini/gemini-1.5-flash")
+        # Gemini support via litellm
+        if st.session_state.api_keys["gemini"]:
+            available_models.append("gemini/gemini-1.5-flash")
         
         if available_models:
             # Default to OpenAI if available, otherwise first available
@@ -282,8 +264,8 @@ def render_settings_sidebar():
             st.session_state.current_model = None
         
         # Info about Gemini
-        if st.session_state.api_keys["gemini"] and not st.session_state.api_keys["openai"] and not st.session_state.api_keys["glm"]:
-            st.info("Gemini key detected but Gemini support is currently disabled due to crewai compatibility. Please add a GLM-4.6 or OpenAI key for full functionality.")
+        if st.session_state.api_keys["gemini"] and not st.session_state.api_keys["openai"]:
+            st.info("Gemini key detected. Gemini support is available via litellm.")
         
         # Clear chat button
         st.markdown("---")
@@ -294,10 +276,8 @@ def render_settings_sidebar():
         # Status indicator
         st.markdown("---")
         st.markdown("### Status")
-        if st.session_state.api_keys["glm"] or st.session_state.api_keys["openai"] or st.session_state.api_keys["gemini"]:
+        if st.session_state.api_keys["openai"] or st.session_state.api_keys["gemini"]:
             st.success("Ready")
-            if st.session_state.api_keys["glm"]:
-                st.info("GLM-4.6 is configured and will be used as default")
         else:
             st.error("No API keys configured")
 
@@ -354,13 +334,11 @@ def render_chat_interface():
 def process_user_request(prompt: str):
     """Process a user request by creating and running a crew."""
     with st.chat_message("assistant"):
-        # Set up API keys in environment
+        # Set up API keys in environment (litellm reads from environment variables)
         if st.session_state.api_keys["gemini"]:
             os.environ["GEMINI_API_KEY"] = st.session_state.api_keys["gemini"]
         if st.session_state.api_keys["openai"]:
             os.environ["OPENAI_API_KEY"] = st.session_state.api_keys["openai"]
-        if st.session_state.api_keys["glm"]:
-            os.environ["ZHIPUAI_API_KEY"] = st.session_state.api_keys["glm"]
         
         # Create activity log container (expander for agent work visibility)
         log_expander = st.expander("🔍 Agent Activity Log", expanded=True)
@@ -377,33 +355,19 @@ def process_user_request(prompt: str):
                 if not st.session_state.current_model:
                     raise ValueError("No model selected. Please configure API keys and select a model.")
                 
-                # Smart router: select best model based on prompt (prioritize GLM-4.6)
+                # Smart router: select best model based on prompt
                 available_models = []
-                if st.session_state.api_keys["glm"]:
-                    available_models.append("glm-4.6")
                 if st.session_state.api_keys["openai"]:
                     available_models.append("gpt-3.5-turbo")
+                if st.session_state.api_keys["gemini"]:
+                    available_models.append("gemini/gemini-1.5-flash")
                 
                 model_name = route_model(prompt, available_models)
                 
-                # Create LLM wrapper with GLM-4.6 configuration if needed
-                api_base = None
-                api_key = None
-                
-                if model_name == "glm-4.6":
-                    # GLM-4.6 API Configuration (per official docs: https://apidog.com/blog/glm-4-6-api/)
-                    # Endpoint: https://api.z.ai/api/paas/v4/chat/completions
-                    # Model: "glm-4.6"
-                    # Authentication: Bearer token
-                    api_base = "https://api.z.ai/api/paas/v4"  # LiteLLM appends /chat/completions
-                    api_key = st.session_state.api_keys.get("glm")
-                    model_name = "glm-4.6"  # Official model name
-                
+                # Create LLM wrapper (litellm reads API keys from environment variables)
                 llm = LiteLLMWrapper(
                     model_name=model_name,
                     temperature=0.7,
-                    api_base=api_base,
-                    api_key=api_key,
                 )
                 
                 # Use Claude Code decision engine and orchestrator

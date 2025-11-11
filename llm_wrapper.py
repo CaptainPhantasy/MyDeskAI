@@ -15,15 +15,20 @@ import litellm
 class LiteLLMWrapper(BaseChatModel):
     """
     A wrapper class that makes litellm compatible with crewai's LangChain-based architecture.
-    This allows crewai agents to use any LLM supported by litellm (Gemini, OpenAI, GLM-4.6, etc.)
+    This allows crewai agents to use any LLM supported by litellm (Gemini, OpenAI, etc.)
     through a unified interface.
+    
+    API keys should be set in environment variables:
+    - GEMINI_API_KEY for Gemini models
+    - OPENAI_API_KEY for OpenAI models
+    litellm will automatically read these from the environment.
     """
     
     model_name: str = "gpt-3.5-turbo"
     temperature: float = 0.7
     max_tokens: Optional[int] = None
-    api_base: Optional[str] = None  # Custom API base URL for GLM-4.6 and other providers
-    api_key: Optional[str] = None  # API key for the model
+    api_base: Optional[str] = None  # Custom API base URL for custom providers
+    api_key: Optional[str] = None  # API key for the model (optional, litellm reads from env)
     
     @property
     def _llm_type(self) -> str:
@@ -62,36 +67,22 @@ class LiteLLMWrapper(BaseChatModel):
                     litellm_messages.append({"role": "user", "content": str(msg.content)})
             
             # Prepare parameters for litellm
-            # For GLM-4.6, use OpenAI-compatible format with custom endpoint
-            # Official API: https://api.z.ai/api/paas/v4/chat/completions
-            # Model name: "glm-4.6"
-            # Authentication: Bearer token in Authorization header
-            if self.model_name == "glm-4.6" and self.api_base:
-                # GLM-4.6 uses OpenAI-compatible API format
-                # LiteLLM uses "openai/" prefix to route to OpenAI-compatible endpoints
-                params = {
-                    "model": "openai/glm-4.6",  # LiteLLM format for OpenAI-compatible APIs
-                    "messages": litellm_messages,
-                    "temperature": self.temperature,
-                    "api_base": self.api_base,  # Base URL: https://api.z.ai/api/paas/v4
-                }
-                if self.api_key:
-                    params["api_key"] = self.api_key  # Bearer token authentication
-            else:
-                # Standard litellm format
-                params = {
-                    "model": self.model_name,
-                    "messages": litellm_messages,
-                    "temperature": self.temperature,
-                }
-                
-                # Add API base URL if provided (for custom endpoints)
-                if self.api_base:
-                    params["api_base"] = self.api_base
-                
-                # Add API key if provided
-                if self.api_key:
-                    params["api_key"] = self.api_key
+            # litellm automatically reads API keys from environment variables:
+            # - GEMINI_API_KEY for Gemini models
+            # - OPENAI_API_KEY for OpenAI models
+            params = {
+                "model": self.model_name,
+                "messages": litellm_messages,
+                "temperature": self.temperature,
+            }
+            
+            # Add API base URL if provided (for custom endpoints)
+            if self.api_base:
+                params["api_base"] = self.api_base
+            
+            # Add API key if explicitly provided (otherwise litellm reads from env)
+            if self.api_key:
+                params["api_key"] = self.api_key
             
             if self.max_tokens:
                 params["max_tokens"] = self.max_tokens

@@ -19,54 +19,49 @@ def route_model(prompt: str, available_models: list) -> str:
     
     # Default to first available model
     if not available_models:
-        return "glm-4.6"  # Default to GLM-4.6 if available
+        return "gpt-3.5-turbo"  # Default fallback
     
-    # Prioritize GLM-4.6 (user's preferred model)
-    if "glm-4.6" in available_models:
-        return "glm-4.6"
-    
-    # Code-related tasks - prefer models good at code
+    # Code-related tasks - prefer GPT models (better code understanding)
     code_keywords = ["code", "program", "function", "class", "script", "debug", "analyze code", "review code"]
     if any(keyword in prompt_lower for keyword in code_keywords):
-        # Prefer GLM-4.6 for code, then GPT models
+        # Prefer GPT models for code tasks
         for model in available_models:
-            if "glm" in model.lower():
-                return model
             if "gpt" in model.lower():
                 return model
+        # Fallback to first available
         return available_models[0]
     
-    # Writing tasks - prefer GLM-4.6, then GPT models
+    # Writing tasks - prefer GPT models, then Gemini
     write_keywords = ["write", "create", "generate", "draft", "compose", "story", "article"]
     if any(keyword in prompt_lower for keyword in write_keywords):
         for model in available_models:
-            if "glm" in model.lower():
-                return model
             if "gpt" in model.lower():
+                return model
+            if "gemini" in model.lower():
                 return model
         return available_models[0]
     
-    # Analysis tasks - prefer GLM-4.6, then GPT models
+    # Analysis tasks - prefer GPT models, then Gemini
     analysis_keywords = ["analyze", "compare", "evaluate", "assess", "review", "examine"]
     if any(keyword in prompt_lower for keyword in analysis_keywords):
         for model in available_models:
-            if "glm" in model.lower():
+            if "gpt" in model.lower():
                 return model
+            if "gemini" in model.lower():
+                return model
+        return available_models[0]
+    
+    # File reading tasks - prefer GPT models
+    file_keywords = ["read", "file", "open", "load"]
+    if any(keyword in prompt_lower for keyword in file_keywords):
+        for model in available_models:
             if "gpt" in model.lower():
                 return model
         return available_models[0]
     
-    # File reading tasks - prefer GLM-4.6
-    file_keywords = ["read", "file", "open", "load"]
-    if any(keyword in prompt_lower for keyword in file_keywords):
-        for model in available_models:
-            if "glm" in model.lower():
-                return model
-        return available_models[0]
-    
-    # Default: prefer GLM-4.6, then first available model
+    # Default: prefer GPT models, then first available model
     for model in available_models:
-        if "glm" in model.lower():
+        if "gpt" in model.lower():
             return model
     return available_models[0]
 
